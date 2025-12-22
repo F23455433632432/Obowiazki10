@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <title>Obowiazki9</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet" />
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{
+      font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,sans-serif;
+      min-height:100vh;display:flex;justify-content:center;align-items:center;
+      background:radial-gradient(circle at top,#fdfbfb 0%,#ebedee 45%,#dde5ff 100%);
+      padding:20px;color:#1f2933;
+    }
+    .app{width:100%;max-width:720px;background:#fff;border-radius:18px;box-shadow:0 18px 40px rgba(15,23,42,.12);padding:22px;overflow:hidden}
+    .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+    .title{font-size:1.35rem;font-weight:600}
+    .muted{color:#6b7280;font-size:.85rem}
+    .card{border:1px solid #e5e7eb;border-radius:14px;padding:14px;background:#fafafa}
+    .hidden{display:none !important;}
+    .input{width:100%;padding:10px 12px;border-radius:12px;border:1px solid #d1d5db;outline:none;background:#fff}
+    .btn{border:none;border-radius:12px;padding:10px 12px;cursor:pointer;font-weight:600;background:linear-gradient(135deg,#4f46e5,#6366f1);color:#fff}
+    .btn.secondary{background:#111827;color:#fff}
+    .btn.ghost{background:transparent;color:#111827;border:1px solid #e5e7eb}
+    .login-grid{display:grid;grid-template-columns:1fr;gap:10px;max-width:420px}
+    .weekbar{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+    .daybtn{border:1px solid #e5e7eb;background:#fff;padding:8px 10px;border-radius:999px;cursor:pointer;font-size:.85rem}
+    .daybtn.active{border-color:#4f46e5;box-shadow:0 0 0 3px rgba(79,70,229,.15)}
+    .daybtn small{display:block;color:#6b7280;font-size:.72rem;margin-top:2px}
+    #new-task-form{display:flex;gap:10px;margin-top:12px}
+    #new-task-input{flex:1}
+    ul{list-style:none;padding:0;margin-top:12px;max-height:360px;overflow:auto}
+    li.task{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:10px 12px;display:flex;gap:10px;align-items:center;margin-bottom:8px}
+    li.task.completed{background:#f0fdf4;border-color:#bbf7d0}
+    li.task.completed .text{color:#9ca3af;text-decoration:line-through}
+    .text{flex:1;word-break:break-word}
+    .del{border:none;background:rgba(239,68,68,.12);color:#b91c1c;padding:6px 10px;border-radius:999px;cursor:pointer}
+  </style>
+</head>
+<body>
+  <div class="app">
+
+    <!-- LOGIN (DEMO) -->
+    <section id="loginView" class="card">
+      <div class="row" style="margin-bottom:10px">
+        <div>
+          <div class="title">Zaloguj się</div>
+          <div class="muted">Wersja demo: dane są tylko w Twojej przeglądarce (localStorage).</div>
+        </div>
+      </div>
+
+      <div class="login-grid">
+        <input id="email" class="input" type="email" placeholder="Email" autocomplete="email" />
+        <input id="password" class="input" type="password" placeholder="Hasło" autocomplete="current-password" />
+        <button id="loginBtn" class="btn">Zaloguj</button>
+        <button id="registerBtn" class="btn ghost">Zarejestruj (demo)</button>
+      </div>
+      <div id="loginMsg" class="muted" style="margin-top:10px"></div>
+    </section>
+
+    <!-- APP -->
+    <section id="appView" class="hidden">
+      <div class="row">
+        <div>
+          <div class="title">Obowiazki9</div>
+          <div class="muted" id="userLine"></div>
+        </div>
+        <button id="logoutBtn" class="btn secondary">Wyloguj</button>
+      </div>
+
+      <!-- Week selector -->
+      <div class="weekbar" id="weekbar"></div>
+
+      <div class="row" style="margin-top:12px">
+        <div class="muted" id="selectedDayLabel"></div>
+        <div class="muted" id="counter"></div>
+      </div>
+
+      <form id="new-task-form">
+        <input id="new-task-input" class="input" type="text" placeholder="Dodaj zadanie na ten dzień…" required />
+        <button class="btn" type="submit">Dodaj</button>
+      </form>
+
+      <ul id="task-list"></ul>
+      <div id="empty" class="muted" style="text-align:center;padding:18px 0">Brak zadań na ten dzień.</div>
+    </section>
+
+  </div>
+
+<script>
+  // ====== DEMO LOGIN (localStorage) ======
+  const loginView = document.getElementById('loginView');
+  const appView = document.getElementById('appView');
+  const emailEl = document.getElementById('email');
+  const passEl = document.getElementById('password');
+  const loginMsg = document.getElementById('loginMsg');
+
+  const loginBtn = document.getElementById('loginBtn');
+  const registerBtn = document.getElementById('registerBtn');
+  const logoutBtn = document.getElementById('logoutBtn');
+  const userLine = document.getElementById('userLine');
+
+  function usersKey(){ return "demo_users_v1"; }
+  function sessionKey(){ return "demo_session_v1"; }
+
+  function getUsers(){ return JSON.parse(localStorage.getItem(usersKey())) || {}; }
+  function setUsers(users){ localStorage.setItem(usersKey(), JSON.stringify(users)); }
+  function setSession(email){ localStorage.setItem(sessionKey(), JSON.stringify({ email })); }
+  function getSession(){ return JSON.parse(localStorage.getItem(sessionKey())); }
+  function clearSession(){ localStorage.removeItem(sessionKey()); }
+
+  function showApp(email){
+    loginView.classList.add('hidden');
+    appView.classList.remove('hidden');
+    userLine.textContent = `Zalogowano jako: ${email}`;
+    currentUserEmail = email;
+    buildWeekBar();
+    renderTasks();
+  }
+  function showLogin(){
+    appView.classList.add('hidden');
+    loginView.classList.remove('hidden');
+    currentUserEmail = null;
+  }
+
+  registerBtn.addEventListener('click', () => {
+    const email = (emailEl.value || '').trim().toLowerCase();
+    const pass = passEl.value || '';
+    if(!email || !pass) { loginMsg.textContent = "Wpisz email i hasło."; return; }
+    const users = getUsers();
+    if(users[email]) { loginMsg.textContent = "Użytkownik już istnieje. Zaloguj się."; return; }
+    users[email] = { pass }; // demo (niebezpieczne w realu)
+    setUsers(users);
+    loginMsg.textContent = "Konto utworzone (demo). Możesz się zalogować.";
+  });
+
+  loginBtn.addEventListener('click', () => {
+    const email = (emailEl.value || '').trim().toLowerCase();
+    const pass = passEl.value || '';
+    const users = getUsers();
+    if(!users[email] || users[email].pass !== pass){
+      loginMsg.textContent = "Błędny email lub hasło (demo).";
+      return;
+    }
+    setSession(email);
+    loginMsg.textContent = "";
+    showApp(email);
+  });
+
+  logoutBtn.addEventListener('click', () => {
+    clearSession();
+    showLogin();
+  });
+
+  // ====== WEEK + TASKS PER DAY ======
+  const weekbar = document.getElementById('weekbar');
+  const selectedDayLabel = document.getElementById('selectedDayLabel');
+  const counter = document.getElementById('counter');
+  const form = document.getElementById('new-task-form');
+  const input = document.getElementById('new-task-input');
+  const list = document.getElementById('task-list');
+  const empty = document.getElementById('empty');
+
+  let currentUserEmail = null;
+  let selectedDateISO = null;
+
+  function startOfWeekMonday(d){
+    const date = new Date(d);
+    const day = (date.getDay() + 6) % 7;
+    date.setDate(date.getDate() - day);
+    date.setHours(0,0,0,0);
+    return date;
+  }
+  function fmtISO(d){
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth()+1).padStart(2,'0');
+    const dd = String(d.getDate()).padStart(2,'0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
+  function fmtLabel(d){
+    return new Intl.DateTimeFormat('pl-PL', { weekday:'short', day:'2-digit', month:'short' }).format(d);
+  }
+  function tasksStorageKey(email, dateISO){
+    return `tasks_v1::${email}::${dateISO}`;
+  }
+  function loadTasks(){
+    const raw = localStorage.getItem(tasksStorageKey(currentUserEmail, selectedDateISO));
+    return raw ? JSON.parse(raw) : [];
+  }
+  function saveTasks(tasks){
+    localStorage.setItem(tasksStorageKey(currentUserEmail, selectedDateISO), JSON.stringify(tasks));
+  }
+
+  function buildWeekBar(){
+    weekbar.innerHTML = "";
+    const base = startOfWeekMonday(new Date());
+    const todayISO = fmtISO(new Date());
+    if(!selectedDateISO) selectedDateISO = todayISO;
+
+    for(let i=0;i<7;i++){
+      const d = new Date(base);
+      d.setDate(base.getDate() + i);
+      const iso = fmtISO(d);
+
+      const btn = document.createElement('button');
+      btn.type = "button";
+      btn.className = "daybtn" + (iso === selectedDateISO ? " active" : "");
+      btn.innerHTML = `${new Intl.DateTimeFormat('pl-PL',{weekday:'short'}).format(d)}<small>${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}</small>`;
+      btn.addEventListener('click', () => {
+        selectedDateISO = iso;
+        buildWeekBar();
+        renderTasks();
+      });
+      weekbar.appendChild(btn);
+    }
+  }
+
+  function renderTasks(){
+    const tasks = loadTasks();
+    list.innerHTML = "";
+
+    const d = new Date(selectedDateISO + "T00:00:00");
+    selectedDayLabel.textContent = `Dzień: ${fmtLabel(d)}`;
+
+    tasks.forEach((t, idx) => {
+      const li = document.createElement('li');
+      li.className = "task" + (t.completed ? " completed" : "");
+
+      const cb = document.createElement('input');
+      cb.type = "checkbox";
+      cb.checked = !!t.completed;
+      cb.addEventListener('change', () => {
+        const tasks2 = loadTasks();
+        tasks2[idx].completed = cb.checked;
+        saveTasks(tasks2);
+        renderTasks();
+      });
+
+      const span = document.createElement('span');
+      span.className = "text";
+      span.textContent = t.text;
+
+      const del = document.createElement('button');
+      del.className = "del";
+      del.textContent = "Usuń";
+      del.addEventListener('click', () => {
+        const tasks2 = loadTasks();
+        tasks2.splice(idx, 1);
+        saveTasks(tasks2);
+        renderTasks();
+      });
+
+      li.appendChild(cb);
+      li.appendChild(span);
+      li.appendChild(del);
+      list.appendChild(li);
+    });
+
+    const done = tasks.filter(x => x.completed).length;
+    counter.textContent = `${done} / ${tasks.length} zrobione`;
+    empty.style.display = tasks.length ? "none" : "block";
+  }
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const text = input.value.trim();
+    if(!text) return;
+    const tasks = loadTasks();
+    tasks.push({ text, completed: false });
+    saveTasks(tasks);
+    input.value = "";
+    input.focus();
+    renderTasks();
+  });
+
+  // init
+  const sess = getSession();
+  if(sess?.email){ showApp(sess.email); } else { showLogin(); }
+</script>
+</body>
+</html>
