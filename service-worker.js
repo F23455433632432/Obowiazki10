@@ -1,4 +1,4 @@
-const CACHE_NAME = "obowiazki10-v1";
+const CACHE_NAME = "obowiazki10-v2";
 
 const FILES_TO_CACHE = [
   "./",
