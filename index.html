@@ -279,5 +279,9 @@
   const sess = getSession();
   if(sess?.email){ showApp(sess.email); } else { showLogin(); }
 </script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("service-worker.js");
+}
+</script>
 </body>
 </html>
